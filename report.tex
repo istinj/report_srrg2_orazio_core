@@ -54,27 +54,27 @@
 \textbf{Keywords.} \textit{Mobile Robotics, Microcontrollers, Software Development}
 
 \section*{Introduction} \label{sec:intro}
-\lettrine{S}{}mall robots which are used in educational robotics use in general a microcontroller to run the robot software. In fact, small boards that embed a microcontroller are tailored for this job, since they allow to install and manage a wide variety of sensor and send their data at reasonable rates to an external and more power computing unit. Moreover - in general - the cost of those components is relatively low, so this helps to keep the system cheap and allows to more people - and in particular to students - to build their own mobile robot.
+\lettrine{S}{}mall robots used in educational robotics typically adopt a microcontroller to execute time critical tasks and interact with the physical hardware. In fact, small boards that embed a microcontroller are tailored for this job, since they allow to directly interface the microcontroller with a wide range of peripherals. Moreover - in general - the cost of those components is relatively low, so this helps to keep the system cheap and allows to a broad range people - e.g. students - to build their own mobile robot.
 
-The Orazio robot is a wheeled robot developed by the Ro.Co.Co. Laboratory of Sapienza University that matches this philosophy. It is designed to be built by students (bachelor and high-school ones) and for this reason it is modular, simple and cheap, even if it can be used for more complex tasks or for testing robotics algorithms and systems. The Orazio software has been also developed with those concepts in mind and so it is fully modular and compact. The software offers high level interfaces so that upper layers are independent from the implementation of the lower ones. This modularity allow us to isolate the layer that interacts with the microcontroller, leading to the possibility of changing architecture without touching the remaining parts.
+The Orazio robot is a wheeled robot developed within the Ro.Co.Co. Laboratory of Sapienza University that matches this philosophy. It is designed to be built by students (bachelor and high-school ones) and for this reason it is modular, simple and cheap, even if it can be used for more complex tasks or for testing robotics algorithms and systems. The Orazio software has been also developed with those concepts in mind and so it is fully modular and compact. The software offers high level interfaces so that upper layers are independent from the implementation of the lower ones. This modularity allow us to isolate the layer that interacts with the microcontroller, leading to the possibility of changing architecture without touching the remaining parts.
 
 \begin{figure}[!h]
   \centering
   \includegraphics[width=0.75\linewidth]{pics/orazio}
-  \caption{The Orazio robot built by a master student.}
+  \caption{The Orazio robot built by a master student. In this unit, there is also a Microsoft Kinetic that will stream RGB-D images on an external PC.}
   \label{fig:orazio}
 \end{figure}
 
-On the basis of this, in our project we extended the Orazio software to include also the \texttt{dsPIC33f} microcontroller. We opted for this architecture because it performs in hardware the processing of encoder data, reducing the load on the actual MCU.
+On the basis of this, in our project we extended the Orazio software to include also the \texttt{dsPIC33f} microcontroller. We opted for this architecture because it performs in hardware the processing of encoder data: since this can be sampled at very high rates - even 400~kHz - this feature will reduce the load on the actual MCU.
 
 The remaining of this document is organized as follows: firstly, we provide a brief overview of the low level layer - i.e. the one that actually manages the MCU and its peripherals; then we will go with an introduction on the other layers and a sketch of the client that runs on an external device; finally the conclusions and future works of related to this project.
 
 \section*{Orazio Software Implementation} \label{sec:approach}
 In this section we provide an overview of the Orazio software, starting from the \textit{bare-metal} level to the client that runs on the user's PC. Obviously the software is completely open-source and can be downloaded from our repository~\footnote{\href{https://gitlab.com/srrg-software/srrg2_orazio_core.git}{https://gitlab.com/srrg-software/srrg2\_orazio\_core.git}}. The repository contains the full software that runs on Orazio together with the unit tests for each of the peripherals developed.
 \subsection*{Low Level Layer}
-The MCU that we chose for the project is the \texttt{dsPIC33FJ128MC802}~\footnote{\href{https://www.microchip.com/wwwproducts/en/dspic33fj128mc802}{https://www.microchip.com/wwwproducts/en/dspic33fj128mc802}}. It has a 16-bit architecture, a max clock speed of 40 MHz and 16 KB of SRAM. This version designed with the \texttt{MC} acronym - i.e. Motor Controller - has 8 PWM output and 2 Quadrature Encoder Interface that make this MCU tailored for a differential drive robot, since they have only 2 actuators.
+The board we used in this project is the \textit{MuIn dsNav}, an open-source platform developed for small robotics applications. Figure~\ref{fig:dsnav} illustrates the board and its output pins.
 
-The board we opted for is the \textit{MuIn dsNav}, an open-source platform developed for small robotics applications. Figure~\ref{fig:dsnav} illustrates the board and its output pins.
+The MCU embedded on this board is the \texttt{dsPIC33FJ128MC802}~\footnote{\href{https://www.microchip.com/wwwproducts/en/dspic33fj128mc802}{https://www.microchip.com/wwwproducts/en/dspic33fj128mc802}}. It has a 16-bit architecture, a max clock speed of 40 MHz and 16 KB of SRAM. This version designed with the \texttt{MC} acronym - i.e. Motor Controller - has 8 PWM output and 2 Quadrature Encoder Interface that make this MCU tailored for a differential drive robot, since they have only 2 actuators.
 
 \begin{figure}[!h]
   \centering
@@ -87,7 +87,7 @@ In order to make the robot fully functional we had to develop a set of periphera
 % -------------------------------------------------------------------------------
 \paragraph*{UART}
 When developing software for a microcontroller, the first thing to implement is the communication. In this way it is possible to send and receive data from the PC, allowing to debug the system if something is not behaving properly. 
-The UART here is set to its max baud rate - i.e. 115200 Bd - in order to communicate as fast as possible with the PC. The transmission is handled through interrupts in order to avoid the waste of resources. The functionalities offered to the higher layers are simple and easy to understand:
+The defaul UART baud rate here is set to 115200 Bd, however it can be adjusted to other values. The transmission is handled through interrupts in order to avoid the waste of resources. The functionalities offered to the higher layers are simple and easy to understand:
 \begin{itemize}
   \item[--] \texttt{UART\_init}: this function sets up the UART control registers, pin configuration and enables the communication.
   \item[--] \texttt{UART\_putChar}: transmits a character from the MCU to the receiver; the operation is performed atomically - i.e. disabling all the interrupts while operating.
@@ -115,7 +115,7 @@ Summarizing, a certain \texttt{Pin} will be mapped into a related bit in those r
   \item[--] \texttt{DigIO\_setValue} and \texttt{DigIO\_setValue}: setter and getter of the pin value.
 \end{itemize}
 % -------------------------------------------------------------------------------
-\paragraph{EEPROM} The \texttt{dsPIC33F} has a flash non-volatile memory. However, to keep things consistent with the other architectures supported, we developed an EEPROM peripheral. The emulation is obtained through a small library provided by Microchip itself. This makes the EEPROM implementation relatively easy:
+\paragraph{EEPROM} The \texttt{dsPIC33F} has a flash non-volatile memory. However, to keep things consistent with the other architectures supported, we developed an EEPROM peripheral. The emulation is obtained through a small library provided by Microchip itself~\footnote{\href{https://bit.ly/2GnH1KN}{https://bit.ly/2GnH1KN}} that maps EEPROM to Program Memory. This makes the EEPROM implementation relatively easy:
 \begin{itemize}
   \item[--] \texttt{EEPROM\_init}: initializes the emulator subsystem.
   \item[--] \texttt{EEPROM\_read}: reads a specified number of bytes starting from a specific index in the memory.
@@ -163,9 +163,9 @@ The MCU gather all data generated on the board (both internally and from sensors
 
 \paragraph{Orazio Communications} The communication is carried on through a packet protocol: each different 'topic' will have its own packet - e.g. \texttt{SystemPacket}, \texttt{JointStatusPacket} and so on. The MCU imposes the timing of the communication periodically sending an \texttt{EndEpochPacket}.
 
-In order to inform the client that a new packet is coming, the MCU sends the token \texttt{0xAA55}. In this way, the client hooks the packet and can decode it. The entity in charge of managing the packets is the \texttt{PacketHandler}. Orazio will also have a \texttt{DeferredPacketHandler} built on top of the previous: in this way it is possible to accumulate packets in a queue and periodically process them. In order to handle a new type of packet, we have to install the designated packet in the \texttt{PacketHandler}, specifying the operation that will performed when such packet will be received - i.e. a function pointer. Summarizing, the communication epoch starts with the \texttt{0xAA55} token, goes on with the retrieval of the packet information (type, size, ...), gets the actual payload and finally reads the checksum. All of this is performed with a finite state machine implemented through function pointers. More information on this topic can be found in the files \texttt{packet\_handler.h} and \texttt{packet\_handler.c}.
+In order to inform the client that a new packet is coming, the MCU sends the token \texttt{0xAA55}. In this way, the client hooks the packet and can decode it. The entity in charge of managing the packets is the \texttt{PacketHandler}. Orazio will also have a \texttt{DeferredPacketHandler} built on top of the previous: in this way it is possible to accumulate packets in a queue and periodically process them. In order to handle a new type of packet, we have to install the designated packet in the \texttt{PacketHandler}, specifying the operation that will performed when such packet will be received - i.e. a function pointer. Summarizing, the communication epoch starts with the \texttt{0xAA55} token, goes on with the retrieval of the packet information (type, size, ...), gets the actual payload and finally reads the checksum; the end of an epoch is imposed by the \texttt{EndEpochPacket}. All of this is performed with a finite state machine implemented through function pointers. More information on this topic can be found in the files \texttt{packet\_handler.h} and \texttt{packet\_handler.c}.
 
-\paragraph{Orazio Globals} The interaction between MCU and client will involve a set of global variables - located in \texttt{orazio\_globals.h}. Those global variables store the configuration, state and control of each subsystem. Therefore each time the client asks for or tries to set something, those variables will be involved.
+\paragraph{Orazio Globals} The interaction between MCU and client will involve a set of global variables - located in \texttt{orazio\_globals.h}. Those global variables store the configuration, state and control of each subsystem. Therefore each time the client asks for or tries to set something, those variables will be involved - since all modules interact though those global variables.
 
 \paragraph{Orazio Sub-Systems} An aggregation of variables represents a subsystem of the robot - e.g. \texttt{Sonar}, \texttt{DifferentialDrive} and so on. Those are high-level structures that allow also to do be composed - e.g. \texttt{Joint} is a combination of \texttt{Encoder} and \texttt{H\_Bridge} - and to perform some processing - e.g. motor PIDs and odometry retrieval from encoder ticks.
 
@@ -176,11 +176,14 @@ In both cases the MCU will send back a \texttt{ResponsePacket} with operation st
 \paragraph{Application} On top of the client, it is possible to develop several applications, depending on the specification that we want to satisfy. In the repository is provided a web-socket that streams the status of the entire system to the browser, allowing also to change and store the configuration on the fly. 
 
 \section*{Conclusions and Future Works} \label{sec:conclusions}
-In this project we developed a porting of the Orazio software on the Microchip \texttt{dsPIC33FJ128MC802} MCU. We targeted this architecture in order to exploits some of its features like the hardware decode of encoder streams that make this MCU perfect for a differential drive robot.
+In this project we developed a porting of the Orazio software on the Microchip \texttt{dsPIC33FJ128MC802} MCU.
+The modularity of the software allows to change MCU architecture without touching the upper levels, in order to give flexibility to the platform without too much effort. Moreover, since the entire system has been developed with efficiency in mind, performances reach a reasonably high level, leaving room for the addition other modules to the robot.
 
-The modularity of the software allows to change MCU architecture without touching the upper levels, in order to give flexibility to the platform without too much effort. Moreover, since the entire system has been developed with efficiency in mind, performances reach a reasonably high level, leaving room for the addition of even more module to the robot - e.g. on the dsPIC the system has on average 2000 free CPU cycles.
+We targeted the dsPIC architecture in order to exploits some of its features like the hardware decode of encoder streams that make this MCU perfect for a differential drive robot. \textit{The porting is fully functional} and allows to build an Orazio unit with this MCU.
 
-Obviously our teams plans to invest some effort on this system, for example targeting other MCU architectures - e.g. ARM ones - and developing tools to upgrade the robustness of the platform. To this end, a possible future work will be the implementation of a \textit{self-check}, ensuring in boot phase that every peripherals works properly. In this way it could be possible to avoid runtime failures due for example to hardware problems, which are frequent when working at a non-industrial level.
+However, what  we notice developing this porting, is that the MCU we choosen is not so powerful in handling a complex software like the Orazio one. For example, other architectures - e.g. ATmega 2560 - are able to run the same software on the same robot with almost twice the number of free cycles - i.e. 2000 free-cycles on the dsPIC vs more than 4000 on the ATmega. For this reason we aim to target more powerful MCU architectures - e.g. ARM ones. 
+
+Moreover, we plan to develop tools to upgrade the robustness of the platform. To this end, a possible future work could be the implementation of a \textit{self-check} module, ensuring in boot phase that each peripheral works properly. In this way it could be possible to avoid runtime failures due to hardware problems, which are frequent when working at a non-industrial level.
 
 \newpage
 \section*{Appendix A} \label{sec:appendix}
